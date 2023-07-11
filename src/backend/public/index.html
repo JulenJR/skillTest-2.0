@@ -51,55 +51,52 @@
 
   <div id="roundResults"></div>
 
-  <button onclick="playGame()">Start Game</button>
-  
-  <button id="resetButton" onclick="resetScores()">Reset Scores</button>
+  <button onclick="playGame()">Play Game</button>
+
+  <button onclick="resetScores()">Reset Scores</button>
 
   <script>
+    let teamAScore = 0;
+    let teamBScore = 0;
+
     function addPoints(team, points) {
       fetch(`/score?team=${team}&points=${points}`)
-        .then(response => response.json())
+        .then(response => {
+          if (!response.ok) {
+            throw new Error("Network response was not ok");
+          }
+          return response.json();
+        })
         .then(data => {
           const updatedScore = data[team].score;
-          const scoreElement = document.getElementById(`team${team}Score`);
-          if (scoreElement) {
-            scoreElement.textContent = updatedScore.toString();
+          document.getElementById(`${team}Score`).textContent = updatedScore.toString();
+          if (team === 'teamA') {
+            teamAScore = updatedScore;
+          } else if (team === 'teamB') {
+            teamBScore = updatedScore;
           }
         })
         .catch(error => {
           console.error('Error:', error);
         });
     }
-    
+
     function playGame() {
-      const buttons = document.getElementsByTagName('button');
-      for (let i = 0; i < buttons.length; i++) {
-        buttons[i].disabled = true;
-      }
+      const roundResultsElement = document.getElementById('roundResults');
+      roundResultsElement.innerHTML = '';
 
       fetch('/play')
-        .then(response => response.text())
-        .then(data => {
-          const roundResultsElement = document.getElementById('roundResults');
-          if (roundResultsElement) {
-            roundResultsElement.innerHTML = data;
-
-            const scoreData = data.split('<div>').filter(Boolean);
-            scoreData.forEach((roundResult) => {
-              const teamName = roundResult.split(' scored ')[0].trim();
-              const points = roundResult.match(/\d+/)[0];
-
-              const teamScoreElement = document.getElementById(`team${teamName}Score`);
-              if (teamScoreElement) {
-                const teamScore = parseInt(teamScoreElement.textContent);
-                teamScoreElement.textContent = (teamScore + parseInt(points)).toString();
-              }
-            });
+        .then(response => {
+          if (!response.ok) {
+            throw new Error("Network response was not ok");
           }
+          return response.json();
+        })
+        .then(results => {
+          const roundResults = results.map(result => `<div>${result}</div>`).join('');
+          roundResultsElement.innerHTML = roundResults;
 
-          for (let i = 0; i < buttons.length; i++) {
-            buttons[i].disabled = false;
-          }
+          updateScore(results);
         })
         .catch(error => {
           console.error('Error:', error);
@@ -112,16 +109,33 @@
         .then(data => {
           const teamAScoreElement = document.getElementById('teamAScore');
           const teamBScoreElement = document.getElementById('teamBScore');
-          if (teamAScoreElement && teamBScoreElement) {
-            teamAScoreElement.textContent = data.teamA.score;
-            teamBScoreElement.textContent = data.teamB.score;
-          }
+
+          teamAScoreElement.textContent = data.teamA.score.toString();
+          teamBScoreElement.textContent = data.teamB.score.toString();
+
+          teamAScore = data.teamA.score;
+          teamBScore = data.teamB.score;
         })
         .catch(error => {
           console.error('Error:', error);
         });
     }
 
+    function updateScore(results) {
+      results.forEach(result => {
+        const points = parseInt(result.match(/\d+/)[0], 10);
+        const teamName = result.split(' scored ')[0].trim();
+
+        if (teamName === 'Team teamA') {
+          teamAScore += points;
+        } else if (teamName === 'Team teamB') {
+          teamBScore += points;
+        }
+      });
+
+      document.getElementById('teamAScore').textContent = teamAScore.toString();
+      document.getElementById('teamBScore').textContent = teamBScore.toString();
+    }
   </script>
 </body>
 </html>
